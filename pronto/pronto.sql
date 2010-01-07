@@ -8,13 +8,6 @@ SET search_path = public, pg_catalog;
 SET default_tablespace = '';
 SET default_with_oids = false;
 
-CREATE TABLE backlog (
-    backlog_key integer NOT NULL,
-    descricao character varying(255)
-);
-
-ALTER TABLE public.backlog OWNER TO pronto;
-
 CREATE SEQUENCE hibernate_sequence
     INCREMENT BY 1
     NO MAXVALUE
@@ -58,6 +51,61 @@ CREATE SEQUENCE seq_ticket_log
     CACHE 1;
 
     ALTER TABLE public.seq_ticket_log OWNER TO pronto;
+
+CREATE SEQUENCE seq_script
+    INCREMENT BY 1
+    NO MAXVALUE
+    NO MINVALUE
+    CACHE 1;
+
+    ALTER TABLE seq_script OWNER TO pronto;
+
+CREATE SEQUENCE seq_banco_de_dados
+    INCREMENT BY 1
+    NO MAXVALUE
+    NO MINVALUE
+    CACHE 1;
+
+    ALTER TABLE seq_banco_de_dados OWNER TO pronto;
+
+CREATE SEQUENCE seq_execucao
+    INCREMENT BY 1
+    NO MAXVALUE
+    NO MINVALUE
+    CACHE 1;
+
+    ALTER TABLE seq_execucao OWNER TO pronto;
+
+CREATE SEQUENCE seq_retrospectiva
+    INCREMENT BY 1
+    NO MAXVALUE
+    NO MINVALUE
+    CACHE 1;
+
+    ALTER TABLE seq_retrospectiva OWNER TO pronto;
+
+CREATE SEQUENCE seq_retrospectiva_item
+    INCREMENT BY 1
+    NO MAXVALUE
+    NO MINVALUE
+    CACHE 1;
+
+    ALTER TABLE seq_retrospectiva OWNER TO pronto;
+
+CREATE SEQUENCE seq_cliente
+    INCREMENT BY 1
+    NO MAXVALUE
+    NO MINVALUE
+    CACHE 1;
+
+    ALTER TABLE seq_cliente OWNER TO pronto;
+
+CREATE TABLE backlog (
+    backlog_key integer NOT NULL,
+    descricao character varying(255)
+);
+
+ALTER TABLE public.backlog OWNER TO pronto;
     
 CREATE TABLE kanban_status (
     kanban_status_key integer NOT NULL,
@@ -95,21 +143,24 @@ CREATE TABLE ticket (
     esforco double precision NOT NULL,
     par boolean NOT NULL,
     planejado boolean NOT NULL,
-    data_de_criacao timestamp without time zone,
+    data_de_criacao timestamp without time zone default now(),
     data_de_pronto timestamp without time zone,
     reporter_key character varying(255),
     pai integer,
     kanban_status_key integer,
     sprint integer,
     tipo_de_ticket_key integer,
-    backlog_key integer
+    backlog_key integer,
+    prioridade integer,
+    cliente_key integer,
+    prioridade_do_cliente integer
 );
 
 ALTER TABLE public.ticket OWNER TO pronto;
 
 CREATE TABLE ticket_comentario (
     ticket_comentario_key integer NOT NULL,
-    usuario character varying(255),
+    usuario_key character varying(255),
     data timestamp without time zone,
     texto text,
     ticket_key integer
@@ -158,7 +209,9 @@ CREATE TABLE usuario (
     username character varying(100) NOT NULL,
     "password" character varying(30),
     nome character varying(150),
-    email character varying(170)
+    email character varying(170),
+    email_md5 character varying(170),
+    cliente_key integer
 );
 
 ALTER TABLE public.usuario OWNER TO pronto;
@@ -171,7 +224,62 @@ CREATE TABLE usuario_papel (
 
 ALTER TABLE public.usuario_papel OWNER TO pronto;
 
-INSERT INTO backlog VALUES (1, 'Idéias');
+CREATE TABLE banco_de_dados (
+    banco_de_dados_key integer NOT NULL,
+    nome character varying(120)
+);
+
+ALTER TABLE banco_de_dados OWNER TO pronto;
+
+CREATE TABLE script (
+    script_key integer NOT NULL,
+    descricao character varying(120) not null,
+    script text    
+);
+
+ALTER TABLE script OWNER TO pronto;
+
+CREATE TABLE execucao (
+    execucao_key integer NOT NULL,
+    script_key integer NOT NULL,
+    banco_de_dados_key integer NOT NULL,
+    username character varying(255),
+    data  timestamp without time zone
+);   
+
+ALTER TABLE execucao OWNER TO pronto;
+
+CREATE TABLE tipo_retrospectiva_item (
+    tipo_retrospectiva_item_key integer NOT NULL,
+    descricao character varying(120)
+);
+
+ALTER TABLE public.tipo_retrospectiva_item OWNER TO pronto;
+
+CREATE TABLE retrospectiva (
+    retrospectiva_key integer NOT NULL,
+    sprint_key integer NOT NULL 
+);
+
+ALTER TABLE public.retrospectiva OWNER TO pronto;
+
+CREATE TABLE retrospectiva_item (
+    retrospectiva_item_key integer NOT NULL,
+    retrospectiva_key integer NOT NULL,
+    tipo_retrospectiva_item_key integer NOT NULL,
+    descricao character varying(255) NOT NULL 
+);
+
+ALTER TABLE public. retrospectiva_item OWNER TO pronto;
+
+CREATE TABLE cliente (
+    cliente_key integer NOT NULL,
+    nome character varying(120)
+);
+
+ALTER TABLE cliente OWNER TO pronto;
+
+INSERT INTO backlog VALUES (1, 'Ideias');
 INSERT INTO backlog VALUES (5, 'Impedimentos');
 INSERT INTO backlog VALUES (4, 'Lixeira');
 INSERT INTO backlog VALUES (2, 'Product Backlog');
@@ -183,12 +291,12 @@ INSERT INTO kanban_status VALUES (21, 'Testing');
 INSERT INTO kanban_status VALUES (100, 'Done');
 
 INSERT INTO papel VALUES (1, 'Product Owner');
-INSERT INTO papel VALUES (4, 'Testador');
 INSERT INTO papel VALUES (2, 'Scrum Master');
-INSERT INTO papel VALUES (5, 'Suporte');
-INSERT INTO papel VALUES (3, 'Desenvolvedor');
+INSERT INTO papel VALUES (6, 'Administrador');
+INSERT INTO papel VALUES (7, 'Cliente');
+INSERT INTO papel VALUES (9, 'Equipe');
 
-INSERT INTO tipo_de_ticket VALUES (1, 'Idéia');
+INSERT INTO tipo_de_ticket VALUES (1, 'Ideia');
 INSERT INTO tipo_de_ticket VALUES (2, 'Estória');
 INSERT INTO tipo_de_ticket VALUES (3, 'Defeito');
 INSERT INTO tipo_de_ticket VALUES (5, 'Impedimento');
@@ -198,9 +306,11 @@ INSERT INTO usuario VALUES ('admin', 'ISMvKXpXpadDiUoOSoAfww==', 'Administrador 
 
 INSERT INTO usuario_papel VALUES('admin',1);
 INSERT INTO usuario_papel VALUES('admin',2);
-INSERT INTO usuario_papel VALUES('admin',3);
-INSERT INTO usuario_papel VALUES('admin',4);
-INSERT INTO usuario_papel VALUES('admin',5);
+INSERT INTO usuario_papel VALUES('admin',6);
+INSERT INTO usuario_papel VALUES('admin',9);
+
+INSERT INTO tipo_retrospectiva_item VALUES (1, 'O que foi bem');
+INSERT INTO tipo_retrospectiva_item VALUES (2, 'O que pode ser melhorado');
 
 ALTER TABLE ONLY backlog
     ADD CONSTRAINT backlog_pkey PRIMARY KEY (backlog_key);
@@ -238,6 +348,27 @@ ALTER TABLE ONLY usuario_papel
 ALTER TABLE ONLY usuario
     ADD CONSTRAINT usuario_pkey PRIMARY KEY (username);
 
+ALTER TABLE ONLY banco_de_dados
+    ADD CONSTRAINT banco_de_dados_pkey PRIMARY KEY (banco_de_dados_key);
+
+ALTER TABLE ONLY script
+    ADD CONSTRAINT script_pkey PRIMARY KEY (script_key);
+
+ALTER TABLE ONLY execucao
+    ADD CONSTRAINT execucao_pkey PRIMARY KEY (execucao_key);
+
+ALTER TABLE ONLY tipo_retrospectiva_item
+    ADD CONSTRAINT tipo_retrospectiva_item_pkey PRIMARY KEY (tipo_retrospectiva_item_key);
+
+ALTER TABLE ONLY retrospectiva
+    ADD CONSTRAINT retrospectiva_pkey PRIMARY KEY (retrospectiva_key);
+
+ALTER TABLE ONLY retrospectiva_item
+    ADD CONSTRAINT retrospectiva_item_pkey PRIMARY KEY (retrospectiva_item_key);
+
+ALTER TABLE ONLY cliente
+    ADD CONSTRAINT cliente_pkey PRIMARY KEY (cliente_key);
+
 ALTER TABLE ONLY usuario_papel
     ADD CONSTRAINT fk4d25cd3566f20c10 FOREIGN KEY (papel_key) REFERENCES papel(papel_key);
 
@@ -262,6 +393,9 @@ ALTER TABLE ONLY ticket_log
 ALTER TABLE ONLY ticket_comentario
     ADD CONSTRAINT fkae76b2f46484a110 FOREIGN KEY (ticket_key) REFERENCES ticket(ticket_key);
 
+ALTER TABLE ONLY ticket_comentario
+    ADD CONSTRAINT fk_ticket_comentario_usuario FOREIGN KEY (usuario_key) REFERENCES usuario(username);
+
 ALTER TABLE ONLY ticket
     ADD CONSTRAINT fkcbe86b0c6bb18e7e FOREIGN KEY (backlog_key) REFERENCES backlog(backlog_key);
 
@@ -279,12 +413,40 @@ ALTER TABLE ONLY ticket
 
 ALTER TABLE ONLY ticket
     ADD CONSTRAINT fkcbe86b0ce7f57efc FOREIGN KEY (pai) REFERENCES ticket(ticket_key);
+
+ALTER TABLE ONLY execucao
+    ADD CONSTRAINT fk_execucao_script FOREIGN KEY (script_key) REFERENCES script(script_key);    
+
+ALTER TABLE ONLY execucao
+    ADD CONSTRAINT fk_exeucao_banco_de_dados FOREIGN KEY (banco_de_dados_key) REFERENCES banco_de_dados(banco_de_dados_key);   
+    
+ALTER TABLE ONLY execucao
+    ADD CONSTRAINT fk_execucao_usuario FOREIGN KEY (username) REFERENCES usuario(username);
+
+ALTER TABLE ONLY retrospectiva
+    ADD CONSTRAINT fk_retrospectiva_sprint FOREIGN KEY (sprint_key) REFERENCES sprint(sprint_key);
+
+ALTER TABLE ONLY retrospectiva_item
+    ADD CONSTRAINT fk_retrospectiva_item_retrospectiva FOREIGN KEY (retrospectiva_key) REFERENCES retrospectiva(retrospectiva_key);    
+
+ALTER TABLE ONLY tipo_retrospectiva_item
+    ADD CONSTRAINT fk_retrospectiva_item_tipo_retrospectiva_item FOREIGN KEY (tipo_retrospectiva_item_key) REFERENCES tipo_retrospectiva_item(tipo_retrospectiva_item_key);
+
+ALTER TABLE ONLY USUARIO
+    ADD CONSTRAINT FK_USUARIO_CLIENTE FOREIGN KEY (CLIENTE_KEY) REFERENCES CLIENTE (CLIENTE_KEY);
+
+ALTER TABLE ONLY TICKET
+    ADD CONSTRAINT FK_TICKET_CLIENTE FOREIGN KEY (CLIENTE_KEY) REFERENCES CLIENTE (CLIENTE_KEY);    
     
 CREATE INDEX idx_ticket_sprint ON ticket USING btree (sprint);    
 CREATE INDEX idx_ticket_tipo_de_ticket ON ticket USING btree (tipo_de_ticket_key);
 CREATE INDEX idx_ticket_kaban_status ON ticket USING btree (kanban_status_key);
 CREATE INDEX idx_ticket_backlog ON ticket USING btree (backlog_key);
 CREATE INDEX idx_ticket_titulo ON ticket USING btree (titulo);
+CREATE INDEX idx_ticket_cliente ON ticket USING btree (cliente_key);
+CREATE INDEX idx_ticket_branch ON ticket USING btree (branch);
+CREATE INDEX idx_execucao_script ON execucao USING btree (script_key);
+CREATE INDEX idx_execucao_banco_de_dados ON execucao USING btree (banco_de_dados_key);
 
 REVOKE ALL ON SCHEMA public FROM PUBLIC;
 REVOKE ALL ON SCHEMA public FROM postgres;
